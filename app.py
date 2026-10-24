@@ -16,46 +16,60 @@ if uploaded_file is not None:
     else:
         df = pd.read_excel(uploaded_file)
 
-   # Tự động làm sạch tên cột (xóa khoảng trắng thừa, chuyển thành chữ hoa)
+    # Tự động làm sạch tên cột
     df.columns = [str(col).strip().upper() for col in df.columns]
 
-    # Tìm chính xác tên cột MCV và RBC hoặc các biến thể tương đương
+    # Tìm chính xác tên cột
     mcv_col = next((col for col in df.columns if 'MCV' in col), None)
     rbc_col = next((col for col in df.columns if 'RBC' in col), None)
 
     if mcv_col and rbc_col:
-        # Tính chỉ số Mentzer Index dựa trên tên cột tìm được
+        # Tính chỉ số Mentzer Index
         df['MENTZER_INDEX'] = df[mcv_col] / df[rbc_col]
         
+        # Định nghĩa hàm phân loại nâng cao (kết hợp MCV, MCH, RDW)
         def classify_screening(row):
-            if pd.isna(row['MENTZER_INDEX']):
-                return 'Chưa đủ dữ liệu'
-            elif row['MENTZER_INDEX'] < 13:
-                return '🔴 Nghi ngờ Thalassemia (Hồng cầu nhỏ)'
+            mcv = row.get('MCV', None)
+            mch = row.get('MCH', None)
+            rbc = row.get('RBC', None)
+            rdw = row.get('RDW', None)
+            
+            if rbc is None or rbc == 0 or pd.isna(rbc) or pd.isna(mcv):
+                return "Không đủ dữ liệu"
+            
+            mentzer = mcv / rbc
+            
+            if mentzer < 13:
+                return "🔴 Nghi ngờ Thalassemia (Hồng cầu nhỏ)"
+            elif (not pd.isna(mcv) and mcv < 80.0) or (mch is not None and not pd.isna(mch) and mch < 27.0):
+                if rdw is not None and not pd.isna(rdw) and rdw > 14.5:
+                    return "🟡 Nghi ngờ Thiếu máu thiếu sắt (RDW tăng)"
+                else:
+                    return "🟡 Nghi ngờ Thiếu máu thiếu sắt"
             else:
-                return '🟡 Nghi ngờ Thiếu máu thiếu sắt'
+                return "🟢 Bình thường (Normal)"
 
+        # Gán kết quả sàng lọc thông minh vào bảng
         df['GỢI Ý SÀNG LỌC'] = df.apply(classify_screening, axis=1)
-
-    # 2. Hiển thị bảng kết quả sàng lọc
-    st.subheader("📋 Kết quả Sàng lọc Tự động & Mentzer Index")
-    st.dataframe(df)
-    
-    # Thống kê cảnh báo số ca nghi ngờ
-    if 'MENTZER_INDEX' in df.columns:
+        
+        # 2. Hiển thị bảng kết quả
+        st.subheader("📋 Kết quả Sàng lọc Tự động & Mentzer Index")
+        st.dataframe(df)
+        
+        # Thống kê cảnh báo
         num_thal = len(df[df['MENTZER_INDEX'] < 13])
         st.warning(f"⚠️ Phát hiện **{num_thal}** trường hợp có chỉ số Mentzer < 13 cần lưu ý sàng lọc Thalassemia chuyên sâu!")
+        
     else:
-        st.error(f"Hệ thống tìm thấy cột MCV là '{mcv_col}' nhưng chưa tìm thấy cột RBC phù hợp trong file của bạn!")
+        st.error(f"Hệ thống không tìm thấy đủ cột MCV hoặc RBC trong file của bạn!")
 
-  # 3. Trực quan hóa Biểu đồ hộp (Boxplot)
+    # 3. Trực quan hóa Biểu đồ hộp (Boxplot)
     st.subheader("📊 Trực quan hóa Biểu đồ Hộp (Boxplot) Huyết học")
     
     if 'MCV' in df.columns:
         fig, ax = plt.subplots(figsize=(10, 5))
         if 'MUTATION_GROUP' in df.columns:
             sns.boxplot(x='MUTATION_GROUP', y='MCV', data=df, palette='Set2', ax=ax)
-            # Giữ chữ nằm thẳng ngang, canh giữa tuyệt đối với từng cột hộp
             plt.xticks(rotation=0, ha='center', fontsize=10)
         else:
             sns.boxplot(y=df['MCV'], color='skyblue', ax=ax)
