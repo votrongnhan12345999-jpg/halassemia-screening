@@ -1,0 +1,120 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import scipy.stats as stats
+import seaborn as sns
+
+# 1. BƯỚC 1: Tạo tập dữ liệu giả lập mở rộng (MCV, MCH, Hb, RDW)
+np.random.seed(42)
+n_samples = 150
+
+mutation_groups = [
+    "Bình thường (Normal)",
+    "Alpha-thal (Mất đoạn SEA)",
+    "Beta-thal (Đột biến điểm)",
+]
+
+data = {
+    "Patient_ID": [f"PT_{i:03d}" for i in range(1, n_samples + 1)],
+    "Mutation_Group": np.random.choice(mutation_groups, size=n_samples),
+}
+
+mcv_vals, mch_vals, hb_vals, rdw_vals = [], [], [], []
+
+for group in data["Mutation_Group"]:
+  if group == "Bình thường (Normal)":
+    mcv_vals.append(np.random.normal(88, 4))
+    mch_vals.append(np.random.normal(29, 2))
+    hb_vals.append(np.random.normal(13.5, 1.0))
+    rdw_vals.append(np.random.normal(13.0, 0.8))
+  elif group == "Alpha-thal (Mất đoạn SEA)":
+    mcv_vals.append(np.random.normal(70, 5))
+    mch_vals.append(np.random.normal(22, 2))
+    hb_vals.append(np.random.normal(11.0, 1.2))
+    rdw_vals.append(np.random.normal(15.5, 1.2))
+  else:
+    mcv_vals.append(np.random.normal(62, 4))
+    mch_vals.append(np.random.normal(19, 1.5))
+    hb_vals.append(np.random.normal(9.5, 1.0))
+    rdw_vals.append(np.random.normal(18.0, 1.5))
+
+data["MCV"] = mcv_vals
+data["MCH"] = mch_vals
+data["Hb"] = hb_vals
+data["RDW"] = rdw_vals
+
+df = pd.DataFrame(data)
+
+# 2. BƯỚC 3: Xuất dữ liệu ra file CSV trong thư mục dự án
+df.to_csv("thalassemia_synthetic_data.csv", index=False, encoding="utf-8-sig")
+print(
+    "Đã lưu thành công file: thalassemia_synthetic_data.csv vào thư mục dự"
+    " án!\n"
+)
+
+print("--- 5 dòng dữ liệu giả lập mở rộng đầu tiên ---")
+print(df.head())
+print("\n" + "=" * 50 + "\n")
+
+# 3. BƯỚC 2: Chạy kiểm định thống kê (ANOVA) cho chỉ số MCV
+group_normal = df[df["Mutation_Group"] == "Bình thường (Normal)"]["MCV"]
+group_alpha = df[df["Mutation_Group"] == "Alpha-thal (Mất đoạn SEA)"]["MCV"]
+group_beta = df[df["Mutation_Group"] == "Beta-thal (Đột biến điểm)"]["MCV"]
+
+f_val, p_val = stats.f_oneway(group_normal, group_alpha, group_beta)
+print(f"KẾT QUẢ KIỂM ĐỊNH THỐNG KÊ (ANOVA cho MCV):")
+print(f"F-value: {f_val:.2f}")
+print(f"p-value: {p_val:.5e}")
+if p_val < 0.05:
+  print("-> Kết luận: Sự khác biệt về MCV giữa các nhóm có ý nghĩa thống kê.")
+print("\n" + "=" * 50 + "\n")
+
+# 4. Vẽ biểu đồ hộp (Boxplot) đồng thời 4 chỉ số (MCV, MCH, Hb, RDW)
+fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+
+sns.boxplot(
+    ax=axes[0, 0],
+    x="Mutation_Group",
+    y="MCV",
+    data=df,
+    palette="Set2",
+    hue="Mutation_Group",
+    legend=False,
+)
+axes[0, 0].set_title("So sánh MCV giữa các nhóm")
+
+sns.boxplot(
+    ax=axes[0, 1],
+    x="Mutation_Group",
+    y="MCH",
+    data=df,
+    palette="Set2",
+    hue="Mutation_Group",
+    legend=False,
+)
+axes[0, 1].set_title("So sánh MCH giữa các nhóm")
+
+sns.boxplot(
+    ax=axes[1, 0],
+    x="Mutation_Group",
+    y="Hb",
+    data=df,
+    palette="Set2",
+    hue="Mutation_Group",
+    legend=False,
+)
+axes[1, 0].set_title("So sánh Hb giữa các nhóm")
+
+sns.boxplot(
+    ax=axes[1, 1],
+    x="Mutation_Group",
+    y="RDW",
+    data=df,
+    palette="Set2",
+    hue="Mutation_Group",
+    legend=False,
+)
+axes[1, 1].set_title("So sánh RDW giữa các nhóm")
+
+plt.tight_layout()
+plt.show()
